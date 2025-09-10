@@ -1,36 +1,60 @@
 "use client";
-import { supabase } from "@/lib/supabaseClient";
+
 import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import LoginForm from "@/components/LoginForm";
+import RegisterForm from "@/components/RegisterForm";
 
 export default function AuthPage() {
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
+  const [activeTab, setActiveTab] = useState("login");
 
-  async function signIn(): Promise<void> {
-    await supabase.auth.signInWithPassword({ email, password });
-  }
-
-  async function signUp(): Promise<void> {
-    await supabase.auth.signUp({ email, password });
-  }
+  const handleSuccessfulRegistration = () => {
+    setActiveTab("login");
+  };
 
   return (
-    <div className="flex flex-col gap-2">
-      <input
-        placeholder="Email"
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-          setEmail(e.target.value)
-        }
-      />
-      <input
-        placeholder="Password"
-        type="password"
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-          setPassword(e.target.value)
-        }
-      />
-      <button onClick={signIn}>Login</button>
-      <button onClick={signUp}>Register</button>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">
+            Flashcard Frenzy
+          </h1>
+          <p className="text-white/90 drop-shadow-md">
+            Master any subject with interactive flashcards
+          </p>
+        </div>
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6 bg-white/20 backdrop-blur-sm border-white/30">
+            <TabsTrigger 
+              value="login" 
+              className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-purple-600 text-white/80"
+            >
+              Sign In
+            </TabsTrigger>
+            <TabsTrigger 
+              value="register" 
+              className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-purple-600 text-white/80"
+            >
+              Sign Up
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="login" className="space-y-4">
+            <LoginForm />
+          </TabsContent>
+          
+          <TabsContent value="register" className="space-y-4">
+            <RegisterForm onSuccessRedirect={handleSuccessfulRegistration} />
+          </TabsContent>
+        </Tabs>
+        
+        <div className="text-center mt-6">
+          <p className="text-sm text-white/70">
+            By continuing, you agree to our Terms of Service and Privacy Policy
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
