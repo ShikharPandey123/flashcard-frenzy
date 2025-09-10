@@ -3,18 +3,17 @@
 import { useState } from "react"
 
 type FlashcardProps = {
-  id: string
   question: string
   options: string[]
   onAnswer: (answer: string) => void
 }
 
-export default function Flashcard({ id, question, options, onAnswer }: FlashcardProps) {
+export default function Flashcard({ question, options, onAnswer }: FlashcardProps) {
   const [selected, setSelected] = useState<string | null>(null)
 
   function handleSelect(option: string) {
     setSelected(option)
-    onAnswer(option) // Pass the answer back to parent (Match UI)
+    onAnswer(option)
   }
 
   return (

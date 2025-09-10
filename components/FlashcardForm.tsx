@@ -40,8 +40,8 @@ export default function FlashcardForm({ onSuccess }: FlashcardFormProps) {
       setCorrectIndex(null)
 
       if (onSuccess) onSuccess()
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError((err as Error).message)
     } finally {
       setLoading(false)
     }
