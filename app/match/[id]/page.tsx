@@ -24,6 +24,13 @@ type ScoreRow = {
   score: number;
 };
 
+type Flashcard = {
+  id: string;
+  question: string;
+  options: string[];
+  correct_answer: string;
+};
+
 export default function MatchPage() {
   const params = useParams();
   const router = useRouter();
@@ -37,6 +44,11 @@ export default function MatchPage() {
   const [correctAnswer, setCorrectAnswer] = useState<string>("");
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [allFlashcards, setAllFlashcards] = useState<Flashcard[]>([]);
+  const [usedFlashcardIds, setUsedFlashcardIds] = useState<Set<string>>(new Set());
+  const [currentQuestionNumber, setCurrentQuestionNumber] = useState(1);
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [matchCompleted, setMatchCompleted] = useState(false);
 
   // 🔹 Fetch scores for the current match
   const fetchScores = useCallback(async () => {
@@ -123,22 +135,66 @@ export default function MatchPage() {
     }
   }, [matchId, fetchScores]);
 
+  // 🔹 Load all flashcards when component mounts
+  useEffect(() => {
+    const loadFlashcards = async () => {
+      const { data: flashcards, error } = await supabase
+        .from("flashcards")
+        .select("id, question, options, correct_answer");
+
+      if (!error && flashcards) {
+        setAllFlashcards(flashcards);
+        setTotalQuestions(flashcards.length);
+      }
+    };
+    loadFlashcards();
+  }, []);
+
+  // 🔹 Check for existing rounds to restore match progress
+  useEffect(() => {
+    const checkExistingRounds = async () => {
+      if (!matchId) return;
+      
+      const { data: existingRounds } = await supabase
+        .from("match_rounds")
+        .select("flashcard_id")
+        .eq("match_id", matchId);
+
+      if (existingRounds && existingRounds.length > 0) {
+        const usedIds = new Set(existingRounds.map(round => round.flashcard_id));
+        setUsedFlashcardIds(usedIds);
+        setCurrentQuestionNumber(existingRounds.length + 1);
+      }
+    };
+    checkExistingRounds();
+  }, [matchId]);
+
   // 🔹 Start a new round
   const startRound = async () => {
     if (!matchId) return alert("Invalid match ID");
-    setLoading(true);
-
-    const { data: flashcards, error } = await supabase
-      .from("flashcards")
-      .select("id, question, options, correct_answer");
-
-    if (error || !flashcards || flashcards.length === 0) {
-      setLoading(false);
-      return alert("No flashcards found.");
+    
+    // Check if all flashcards have been used
+    const availableFlashcards = allFlashcards.filter(fc => !usedFlashcardIds.has(fc.id));
+    
+    if (availableFlashcards.length === 0) {
+      // All flashcards completed - end the match
+      setMatchCompleted(true);
+      
+      // Update match status to completed
+      await supabase
+        .from("matches")
+        .update({ status: "completed" })
+        .eq("id", matchId);
+      
+      // Redirect to results page
+      router.push(`/match/${matchId}/results`);
+      return;
     }
 
-    // pick random flashcard
-    const flashcard = flashcards[Math.floor(Math.random() * flashcards.length)];
+    setLoading(true);
+
+    // Pick a random flashcard from available ones
+    const flashcard = availableFlashcards[Math.floor(Math.random() * availableFlashcards.length)];
 
     const { data: roundData, error: roundError } = await supabase
       .from("match_rounds")
@@ -150,6 +206,12 @@ export default function MatchPage() {
       setLoading(false);
       return alert("Failed to start round.");
     }
+
+    // Update used flashcards and question number
+    const newUsedIds = new Set(usedFlashcardIds);
+    newUsedIds.add(flashcard.id);
+    setUsedFlashcardIds(newUsedIds);
+    setCurrentQuestionNumber(newUsedIds.size);
 
     setRound({
       roundId: roundData.id,
@@ -253,16 +315,55 @@ export default function MatchPage() {
       </div>
 
       {/* 🎮 Game UI */}
-      {!round ? (
-        <button
-          onClick={startRound}
-          disabled={loading}
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-md hover:bg-blue-700"
-        >
-          {loading ? "Starting..." : "Start Round"}
-        </button>
+      {matchCompleted ? (
+        <div className="bg-white p-6 rounded-xl shadow-md text-center">
+          <h2 className="text-2xl font-bold text-green-600 mb-4">🎉 Match Completed!</h2>
+          <p className="text-gray-600 mb-4">All questions have been answered. Redirecting to results...</p>
+        </div>
+      ) : !round ? (
+        <div className="bg-white p-6 rounded-xl shadow-md">
+          <div className="text-center mb-4">
+            {totalQuestions > 0 && (
+              <div className="mb-4">
+                <div className="flex justify-between text-sm text-gray-600 mb-2">
+                  <span>Progress</span>
+                  <span>{currentQuestionNumber - 1} / {totalQuestions} completed</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${((currentQuestionNumber - 1) / totalQuestions) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={startRound}
+            disabled={loading || allFlashcards.length === 0}
+            className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg shadow-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "Starting..." : 
+             allFlashcards.length === 0 ? "Loading flashcards..." :
+             currentQuestionNumber === 1 ? "Start Match" : "Next Question"}
+          </button>
+        </div>
       ) : (
         <div className="bg-white p-6 rounded-xl shadow-md">
+          {/* Progress indicator */}
+          <div className="mb-4">
+            <div className="flex justify-between text-sm text-gray-600 mb-2">
+              <span>Question {currentQuestionNumber} of {totalQuestions}</span>
+              <span>{totalQuestions - currentQuestionNumber + 1} remaining</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(currentQuestionNumber / totalQuestions) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+
           <h2 className="text-xl font-semibold mb-4">{round.question}</h2>
           <div className="grid grid-cols-1 gap-3">
             {round.options.map((opt, i) => (
@@ -308,6 +409,8 @@ export default function MatchPage() {
                     ? "Loading next question..." 
                     : countdown 
                     ? `Next question in ${countdown} seconds...`
+                    : currentQuestionNumber >= totalQuestions 
+                    ? "Match completed! Redirecting to results..." 
                     : "Next question in 2 seconds..."
                   }
                 </p>
@@ -320,7 +423,8 @@ export default function MatchPage() {
                   disabled={loading || isTransitioning}
                   className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700 disabled:opacity-50"
                 >
-                  {loading || isTransitioning ? "Loading..." : "Next Question →"}
+                  {loading || isTransitioning ? "Loading..." : 
+                   currentQuestionNumber >= totalQuestions ? "View Results →" : "Next Question →"}
                 </button>
               </div>
             </div>

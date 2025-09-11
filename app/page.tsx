@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import Link from "next/link"
 import type { User } from "@supabase/supabase-js"
+import Navbar from "@/components/Navbar"
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null)
@@ -27,7 +28,9 @@ export default function HomePage() {
   }, [])
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-6">
+    <div>
+      <Navbar />
+      <main className="flex flex-col items-center justify-center min-h-screen p-6">
       <h1 className="text-4xl font-bold mb-6">⚡ Flashcard Battles</h1>
 
       {!user ? (
@@ -60,5 +63,6 @@ export default function HomePage() {
         </>
       )}
     </main>
+    </div>
   )
 }

@@ -5,6 +5,7 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabaseClient"
 import { motion, AnimatePresence } from "framer-motion"
 import { Plus, Trash2, BookOpen, Sparkles } from "lucide-react"
+import Navbar from "@/components/Navbar"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -120,9 +121,11 @@ export default function FlashcardsPage() {
   )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
-      {/* Hero Header */}
-      <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 text-white">
+    <div>
+      <Navbar />
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
+        {/* Hero Header */}
+        <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 text-white">
         <div className="max-w-7xl mx-auto px-6 py-12">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -279,6 +282,7 @@ export default function FlashcardsPage() {
           </div>
         )}
       </div>
+    </div>
     </div>
   )
 }
