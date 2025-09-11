@@ -180,13 +180,7 @@ export default function MatchPage() {
       // All flashcards completed - end the match
       setMatchCompleted(true);
       
-      // Update match status to completed
-      await supabase
-        .from("matches")
-        .update({ status: "completed" })
-        .eq("id", matchId);
-      
-      // Redirect to results page
+      // Redirect to results page (removed status update since column doesn't exist)
       router.push(`/match/${matchId}/results`);
       return;
     }
@@ -233,6 +227,10 @@ export default function MatchPage() {
     setAnsweredOption(answer);
 
     try {
+      // Get current user ID for answered_by field
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+
       // insert attempt
       await supabase.from("round_attempts").insert([
         {
@@ -243,10 +241,13 @@ export default function MatchPage() {
         },
       ]);
 
-      // update match_rounds
+      // update match_rounds with user_id instead of player_id
       await supabase
         .from("match_rounds")
-        .update({ answered_by: playerId, is_correct: isCorrect })
+        .update({ 
+          answered_by: userId || playerId, // Use user_id if available, fallback to playerId
+          is_correct: isCorrect 
+        })
         .eq("id", round.roundId);
 
       // increment score via RPC if exists

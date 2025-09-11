@@ -70,7 +70,7 @@ export default function MatchResultsPage() {
           return;
         }
 
-        // Fetch match players for usernames
+        // Fetch match players to get user IDs and create usernames
         const { data: matchPlayers, error: playersError } = await supabase
           .from('match_players')
           .select('user_id')
@@ -81,36 +81,57 @@ export default function MatchResultsPage() {
           return;
         }
 
-        // Fetch player details
-        const playerIds = matchPlayers?.map(p => p.user_id) || [];
-        const { data: userProfiles } = await supabase
-          .from('auth.users')
-          .select('id, email')
-          .in('id', playerIds);
+        // Get user details from auth.users via RPC or profiles table (if available)
+        // For now, we'll use the user_id as the display name since direct auth.users access is restricted
 
         // Aggregate scores by player
         const playerScores: Record<string, { score: number; total: number }> = {};
         
+        // First, create a mapping of user_id to player info
+        const playerMap = new Map();
+        matchPlayers?.forEach((player, index) => {
+          playerMap.set(player.user_id, {
+            user_id: player.user_id,
+            username: `Player ${index + 1}`,
+            email: `player${index + 1}@match.local`
+          });
+        });
+        
         rounds?.forEach((round) => {
           if (!round.answered_by) return;
           
-          if (!playerScores[round.answered_by]) {
-            playerScores[round.answered_by] = { score: 0, total: 0 };
+          // The answered_by might be either user_id or player_id
+          // Let's try to find the corresponding user_id
+          const userId = round.answered_by;
+          
+          // Check if this is already a user_id in our player map
+          if (!playerMap.has(userId)) {
+            // If not found, it might be a player_id, so we'll use it directly
+            // Create a fallback entry
+            playerMap.set(userId, {
+              user_id: userId,
+              username: `User ${userId.slice(0, 8)}`,
+              email: `user-${userId.slice(0, 8)}@match.local`
+            });
           }
           
-          playerScores[round.answered_by].total += 1;
+          if (!playerScores[userId]) {
+            playerScores[userId] = { score: 0, total: 0 };
+          }
+          
+          playerScores[userId].total += 1;
           if (round.is_correct) {
-            playerScores[round.answered_by].score += 1;
+            playerScores[userId].score += 1;
           }
         });
 
         // Create results array
         const playerResults: PlayerResult[] = Object.entries(playerScores).map(([playerId, stats]) => {
-          const userProfile = userProfiles?.find(u => u.id === playerId);
+          const playerInfo = playerMap.get(playerId);
           return {
             player_id: playerId,
-            username: userProfile?.email?.split('@')[0] || 'Anonymous',
-            email: userProfile?.email,
+            username: playerInfo?.username || `Player ${playerId.slice(0, 8)}`,
+            email: playerInfo?.email,
             score: stats.score,
             total_questions: stats.total,
             accuracy: stats.total > 0 ? (stats.score / stats.total) * 100 : 0,

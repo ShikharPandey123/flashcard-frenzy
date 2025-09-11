@@ -24,7 +24,6 @@ import type { User } from '@supabase/supabase-js';
 
 interface Match {
   id: string;
-  status: string;
   created_at: string;
   created_by: string;
   match_players: { user_id: string }[];
@@ -63,12 +62,10 @@ export default function LobbyPage() {
         .from('matches')
         .select(`
           id,
-          status,
           created_at,
           created_by,
           match_players (user_id)
         `)
-        .eq('status', 'waiting')
         .order('created_at', { ascending: false })
         .limit(6);
 
@@ -387,8 +384,8 @@ export default function LobbyPage() {
                       <Card className="border-2 border-gray-100 hover:border-purple-200 transition-all duration-200 hover:shadow-lg cursor-pointer">
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <Badge variant="secondary" className="bg-green-100 text-green-700">
-                              Waiting
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                              Active
                             </Badge>
                             <div className="flex items-center text-sm text-gray-500">
                               <Users className="h-4 w-4 mr-1" />
