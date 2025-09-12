@@ -109,34 +109,36 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <Card className="w-full max-w-md overflow-hidden backdrop-blur-lg bg-white/90 border-white/30 shadow-2xl">
+      <Card className="w-full max-w-md overflow-hidden backdrop-blur-sm bg-white/80 border-0 shadow-2xl">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          <CardHeader className="space-y-1 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="space-y-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-600/90 to-blue-600/90"></div>
             <motion.div
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.5 }}
+              className="relative z-10"
             >
-              <CardTitle className="text-2xl font-bold text-gray-900">Create account</CardTitle>
-              <CardDescription className="text-gray-700">
+              <CardTitle className="text-2xl font-bold text-white">Create account</CardTitle>
+              <CardDescription className="text-purple-100">
                 Join Flashcard Frenzy and start learning today
               </CardDescription>
             </motion.div>
           </CardHeader>
         </motion.div>
         
-        <CardContent>
+        <CardContent className="p-6">
           <AnimatePresence>
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-center gap-2"
+                className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2"
               >
                 <AlertCircle className="h-4 w-4 text-red-600" />
                 <span className="text-sm text-red-800">{error}</span>
@@ -148,7 +150,7 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md flex items-center gap-2"
+                className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2"
               >
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 <span className="text-sm text-green-800">Account created! Redirecting to sign in...</span>
@@ -163,7 +165,7 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4, duration: 0.5 }}
             >
-              <Label htmlFor="register-email">Email</Label>
+              <Label htmlFor="register-email" className="text-gray-700 font-medium">Email</Label>
               <Input
                 id="register-email"
                 type="email"
@@ -171,7 +173,7 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="transition-all duration-200 focus:scale-[1.02]"
+                className="transition-all duration-200 focus:scale-[1.02] border-gray-200 focus:border-purple-400 focus:ring-purple-400"
               />
             </motion.div>
             
@@ -181,7 +183,7 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5, duration: 0.5 }}
             >
-              <Label htmlFor="register-password">Password</Label>
+              <Label htmlFor="register-password" className="text-gray-700 font-medium">Password</Label>
               <div className="relative">
                 <Input
                   id="register-password"
@@ -190,7 +192,7 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
                   value={password}
                   onChange={(e) => handlePasswordChange(e.target.value)}
                   required
-                  className="pr-10 transition-all duration-200 focus:scale-[1.02]"
+                  className="pr-10 transition-all duration-200 focus:scale-[1.02] border-gray-200 focus:border-purple-400 focus:ring-purple-400"
                 />
                 <motion.button
                   type="button"
@@ -200,9 +202,9 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
                   whileTap={{ scale: 0.9 }}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
+                    <EyeOff className="h-4 w-4 text-gray-400 hover:text-purple-600" />
                   ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
+                    <Eye className="h-4 w-4 text-gray-400 hover:text-purple-600" />
                   )}
                 </motion.button>
               </div>
@@ -220,13 +222,13 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
                       {[25, 50, 75, 100].map((threshold, index) => (
                         <motion.div
                           key={index}
-                          className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
+                          className={`h-2 flex-1 rounded-full transition-colors duration-300 ${
                             passwordStrength >= threshold
                               ? passwordStrength < 50
-                                ? "bg-red-400"
+                                ? "bg-gradient-to-r from-red-400 to-red-500"
                                 : passwordStrength < 75
-                                ? "bg-yellow-400"
-                                : "bg-green-400"
+                                ? "bg-gradient-to-r from-yellow-400 to-yellow-500"
+                                : "bg-gradient-to-r from-green-400 to-green-500"
                               : "bg-gray-200"
                           }`}
                           initial={{ scaleX: 0 }}
@@ -265,7 +267,7 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.6, duration: 0.5 }}
             >
-              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Label htmlFor="confirm-password" className="text-gray-700 font-medium">Confirm Password</Label>
               <div className="relative">
                 <Input
                   id="confirm-password"
@@ -274,11 +276,11 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className={`pr-10 transition-all duration-200 focus:scale-[1.02] ${
+                  className={`pr-10 transition-all duration-200 focus:scale-[1.02] border-gray-200 focus:border-purple-400 focus:ring-purple-400 ${
                     confirmPassword && password !== confirmPassword
-                      ? "border-red-300 focus:border-red-500"
+                      ? "border-red-300 focus:border-red-500 focus:ring-red-500"
                       : confirmPassword && password === confirmPassword
-                      ? "border-green-300 focus:border-green-500"
+                      ? "border-green-300 focus:border-green-500 focus:ring-green-500"
                       : ""
                   }`}
                 />
@@ -290,9 +292,9 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
                   whileTap={{ scale: 0.9 }}
                 >
                   {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
+                    <EyeOff className="h-4 w-4 text-gray-400 hover:text-purple-600" />
                   ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
+                    <Eye className="h-4 w-4 text-gray-400 hover:text-purple-600" />
                   )}
                 </motion.button>
               </div>
@@ -322,7 +324,7 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
               >
                 <Button 
                   type="submit" 
-                  className="w-full relative overflow-hidden" 
+                  className="w-full relative overflow-hidden bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200" 
                   disabled={isLoading || password !== confirmPassword || passwordStrength < 50}
                 >
                   <motion.span

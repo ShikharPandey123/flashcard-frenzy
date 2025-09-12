@@ -2,12 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from "../../../lib/supabaseClient";
 
 type Round = {
   roundId: string;
@@ -36,10 +31,24 @@ export default function MatchPage() {
   const router = useRouter();
   const matchId = params.id as string;
 
+  // Validate matchId format
+  useEffect(() => {
+    if (matchId && !isValidUUID(matchId)) {
+      console.error('Invalid match ID format:', matchId);
+      router.push('/match/lobby');
+      return;
+    }
+  }, [matchId, router]);
+
+  // Simple UUID validation function
+  const isValidUUID = (str: string) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
   const [round, setRound] = useState<Round | null>(null);
   const [loading, setLoading] = useState(false);
   const [scores, setScores] = useState<ScoreRow[]>([]);
-  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [answeredOption, setAnsweredOption] = useState<string | null>(null);
   const [correctAnswer, setCorrectAnswer] = useState<string>("");
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -52,81 +61,73 @@ export default function MatchPage() {
 
   // 🔹 Fetch scores for the current match
   const fetchScores = useCallback(async () => {
-    if (!matchId) return;
+    if (!matchId || !isValidUUID(matchId)) {
+      console.error('Invalid or missing match ID');
+      return;
+    }
     
     try {
-      // Try multiple possible table names for scores
-      let { data, error } = await supabase
-        .from("match_scores")
-        .select("player_id, score")
+      // Use match_players table to get participants
+      const { data, error } = await supabase
+        .from("match_players")
+        .select("user_id")
         .eq("match_id", matchId);
         
-      // If match_scores doesn't exist, try alternative table names
-      if (error && error.code === 'PGRST116') {
-        ({ data, error } = await supabase
-          .from("scores")
-          .select("player_id, score")
-          .eq("match_id", matchId));
+      if (error) {
+        console.error("Error fetching match players:", error);
+        setScores([]);
+        return;
       }
-      
-      if (!error && data) {
-        setScores(data);
-        console.log("Scores fetched:", data);
+        
+      if (data && data.length > 0) {
+        // Calculate scores from round_attempts using the players table
+        const transformedScores = await Promise.all(
+          data.map(async (matchPlayer) => {
+            // First get the player record
+            const { data: playerData } = await supabase
+              .from("players")
+              .select("id")
+              .eq("user_id", matchPlayer.user_id)
+              .maybeSingle();
+
+            if (!playerData) {
+              return {
+                player_id: matchPlayer.user_id,
+                score: 0
+              };
+            }
+
+            // Count correct answers for this player in this match
+            const { data: attempts } = await supabase
+              .from("round_attempts")
+              .select("is_correct, match_rounds!inner(match_id)")
+              .eq("player_id", playerData.id)
+              .eq("match_rounds.match_id", matchId)
+              .eq("is_correct", true);
+            
+            return {
+              player_id: matchPlayer.user_id,
+              score: attempts?.length || 0
+            };
+          })
+        );
+        
+        // Remove duplicates by creating a Map with player_id as key
+        const uniqueScores = Array.from(
+          new Map(transformedScores.map(score => [score.player_id, score])).values()
+        );
+        
+        setScores(uniqueScores);
+        console.log("Unique scores fetched:", uniqueScores);
       } else {
-        console.log("No scores found or error:", error);
+        console.log("No players found in this match");
+        setScores([]);
       }
     } catch (err) {
       console.error("Error fetching scores:", err);
+      setScores([]);
     }
   }, [matchId]);
-
-  // 🔹 Fetch current player
-  useEffect(() => {
-    const fetchPlayer = async () => {
-      const userRes = await supabase.auth.getUser();
-      const userId = userRes.data.user?.id;
-      if (!userId) return;
-
-      // Try to find existing player
-      const { data: playerData, error: playerError } = await supabase
-        .from("players")
-        .select("id")
-        .eq("user_id", userId)
-        .maybeSingle(); // Use maybeSingle() instead of single()
-
-      if (playerData) {
-        setCurrentPlayerId(playerData.id);
-        return;
-      }
-
-      // If no player exists, create one
-      if (playerError?.code === 'PGRST116' || !playerData) {
-        const { data: newPlayer, error: createError } = await supabase
-          .from("players")
-          .insert([{ user_id: userId }])
-          .select("id")
-          .single();
-
-        if (!createError && newPlayer) {
-          setCurrentPlayerId(newPlayer.id);
-          return;
-        }
-      }
-
-      // Final fallback: pick first available player
-      const { data: fallbackData } = await supabase
-        .from("players")
-        .select("id")
-        .limit(1)
-        .maybeSingle(); // Use maybeSingle() here too
-
-      if (fallbackData) {
-        setCurrentPlayerId(fallbackData.id);
-      }
-    };
-
-    fetchPlayer();
-  }, []);
 
   // 🔹 Fetch scores on component mount
   useEffect(() => {
@@ -153,12 +154,20 @@ export default function MatchPage() {
   // 🔹 Check for existing rounds to restore match progress
   useEffect(() => {
     const checkExistingRounds = async () => {
-      if (!matchId) return;
+      if (!matchId || !isValidUUID(matchId)) {
+        console.error('Invalid match ID for rounds check');
+        return;
+      }
       
-      const { data: existingRounds } = await supabase
+      const { data: existingRounds, error } = await supabase
         .from("match_rounds")
         .select("flashcard_id")
         .eq("match_id", matchId);
+
+      if (error) {
+        console.error('Error fetching existing rounds:', error);
+        return;
+      }
 
       if (existingRounds && existingRounds.length > 0) {
         const usedIds = new Set(existingRounds.map(round => round.flashcard_id));
@@ -220,40 +229,97 @@ export default function MatchPage() {
   };
 
   // 🔹 Answer a flashcard
-  const answerFlashcard = async (playerId: string, answer: string) => {
+  const answerFlashcard = async (answer: string) => {
     if (!round) return;
     const isCorrect = round.correct_answer === answer;
 
     setAnsweredOption(answer);
 
     try {
-      // Get current user ID for answered_by field
+      // Get current user ID 
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
+      if (!userId) {
+        console.error('No authenticated user found');
+        return;
+      }
 
-      // insert attempt
+      // First, ensure the user exists in the players table
+      let { data: playerData } = await supabase
+        .from("players")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      // If player doesn't exist, create one
+      if (!playerData) {
+        // Get user profile information for the name
+        const { data: userProfile } = await supabase.auth.getUser();
+        const userName = userProfile.user?.user_metadata?.name || 
+                        userProfile.user?.email?.split('@')[0] || 
+                        'Anonymous Player';
+
+        const { data: newPlayer, error: createPlayerError } = await supabase
+          .from("players")
+          .insert([{ 
+            user_id: userId,
+            name: userName 
+          }])
+          .select("id")
+          .single();
+
+        if (createPlayerError) {
+          console.error('Error creating player:', createPlayerError);
+          return;
+        }
+        playerData = newPlayer;
+      }
+
+      // Ensure user is added to this match
+      const { data: matchPlayerData } = await supabase
+        .from("match_players")
+        .select("user_id")
+        .eq("match_id", matchId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!matchPlayerData) {
+        const { error: createMatchPlayerError } = await supabase
+          .from("match_players")
+          .insert([{ 
+            match_id: matchId,
+            user_id: userId
+          }]);
+
+        if (createMatchPlayerError) {
+          console.error('Error adding user to match:', createMatchPlayerError);
+          return;
+        }
+      }
+
+      // Now insert attempt with the correct player_id
       await supabase.from("round_attempts").insert([
         {
           round_id: round.roundId,
-          player_id: playerId,
+          player_id: playerData.id, // Use the players table ID
           answer,
           is_correct: isCorrect,
         },
       ]);
 
-      // update match_rounds with user_id instead of player_id
+      // Update match_rounds with player_id
       await supabase
         .from("match_rounds")
         .update({ 
-          answered_by: userId || playerId, // Use user_id if available, fallback to playerId
+          answered_by: playerData.id, // Use the players table ID
           is_correct: isCorrect 
         })
         .eq("id", round.roundId);
 
-      // increment score via RPC if exists
+      // Update score calculation - since there's no score column, we don't need to update it
+      // Scores are calculated dynamically from round_attempts
       if (isCorrect) {
-        await supabase.rpc("increment_score", { matchid: matchId, playerid: playerId, points: 1 });
-        // Refresh scores after updating
+        // Refresh scores after the attempt is recorded
         await fetchScores();
       }
 
@@ -305,8 +371,8 @@ export default function MatchPage() {
           <p>No scores yet</p>
         ) : (
           <ul className="space-y-1">
-            {scores.map((s) => (
-              <li key={s.player_id} className="flex justify-between">
+            {scores.map((s, index) => (
+              <li key={`${s.player_id}-${index}`} className="flex justify-between">
                 <span>{s.player_id.slice(0, 6)}...</span>
                 <span className="font-bold">{s.score}</span>
               </li>
@@ -370,9 +436,10 @@ export default function MatchPage() {
             {round.options.map((opt, i) => (
               <button
                 key={i}
-                onClick={() =>
-                  currentPlayerId && answerFlashcard(currentPlayerId, opt)
-                }
+                onClick={() => {
+                  console.log('Option clicked:', opt);
+                  answerFlashcard(opt);
+                }}
                 disabled={!!answeredOption}
                 className={`cursor-pointer p-3 rounded-xl text-lg font-semibold shadow-md transition-all
                   ${

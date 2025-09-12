@@ -13,28 +13,28 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2 drop-shadow-lg">
             Flashcard Frenzy
           </h1>
-          <p className="text-white/90 drop-shadow-md">
+          <p className="text-gray-600 drop-shadow-md">
             Master any subject with interactive flashcards
           </p>
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6 bg-white/20 backdrop-blur-sm border-white/30">
+          <TabsList className="grid w-full grid-cols-2 mb-6 bg-white/80 backdrop-blur-sm border-0 shadow-lg">
             <TabsTrigger 
               value="login" 
-              className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-purple-600 text-white/80"
+              className="text-sm font-medium data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-blue-600 data-[state=active]:text-white text-gray-600 transition-all duration-200"
             >
               Sign In
             </TabsTrigger>
             <TabsTrigger 
               value="register" 
-              className="text-sm font-medium data-[state=active]:bg-white data-[state=active]:text-purple-600 text-white/80"
+              className="text-sm font-medium data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-blue-600 data-[state=active]:text-white text-gray-600 transition-all duration-200"
             >
               Sign Up
             </TabsTrigger>

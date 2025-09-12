@@ -38,6 +38,29 @@ interface MatchStats {
   average_score: number;
 }
 
+// Type definitions for Supabase responses
+type MatchPlayerData = {
+  user_id: string;
+  players: {
+    id: string;
+    name: string;
+  };
+};
+
+type RoundAttemptData = {
+  player_id: string;
+  is_correct: boolean;
+  created_at: string;
+  match_rounds: {
+    match_id: string;
+  };
+  players: {
+    id: string;
+    name: string;
+    user_id: string;
+  };
+};
+
 export default function MatchResultsPage() {
   const params = useParams();
   const router = useRouter();
@@ -55,83 +78,81 @@ export default function MatchResultsPage() {
         const { data: userData } = await supabase.auth.getUser();
         setCurrentUserId(userData.user?.id || null);
 
-        // Fetch all rounds for this match with player details
-        const { data: rounds, error: roundsError } = await supabase
-          .from('match_rounds')
+        // Fetch all round attempts for this match with proper joins
+        const { data: roundAttempts, error: attemptsError } = await supabase
+          .from('round_attempts')
           .select(`
-            answered_by,
+            player_id,
             is_correct,
-            created_at
+            created_at,
+            match_rounds!inner(match_id),
+            players!inner(id, name, user_id)
           `)
-          .eq('match_id', matchId);
+          .eq('match_rounds.match_id', matchId) as { data: RoundAttemptData[] | null; error: unknown };
 
-        if (roundsError) {
-          console.error('Error fetching rounds:', roundsError);
+        if (attemptsError) {
+          console.error('Error fetching round attempts:', attemptsError);
           return;
         }
 
-        // Fetch match players to get user IDs and create usernames
+        // Fetch match players to ensure we have all participants
         const { data: matchPlayers, error: playersError } = await supabase
           .from('match_players')
-          .select('user_id')
-          .eq('match_id', matchId);
+          .select(`
+            user_id,
+            players!inner(id, name)
+          `)
+          .eq('match_id', matchId) as { data: MatchPlayerData[] | null; error: unknown };
 
         if (playersError) {
-          console.error('Error fetching players:', playersError);
+          console.error('Error fetching match players:', playersError);
           return;
         }
 
-        // Get user details from auth.users via RPC or profiles table (if available)
-        // For now, we'll use the user_id as the display name since direct auth.users access is restricted
-
         // Aggregate scores by player
-        const playerScores: Record<string, { score: number; total: number }> = {};
+        const playerScores: Record<string, { 
+          score: number; 
+          total: number; 
+          name: string; 
+          user_id: string 
+        }> = {};
         
-        // First, create a mapping of user_id to player info
-        const playerMap = new Map();
-        matchPlayers?.forEach((player, index) => {
-          playerMap.set(player.user_id, {
-            user_id: player.user_id,
-            username: `Player ${index + 1}`,
-            email: `player${index + 1}@match.local`
-          });
+        // Initialize all match players with zero scores
+        matchPlayers?.forEach((matchPlayer) => {
+          const playerId = matchPlayer.players.id;
+          playerScores[playerId] = {
+            score: 0,
+            total: 0,
+            name: matchPlayer.players.name,
+            user_id: matchPlayer.user_id
+          };
         });
         
-        rounds?.forEach((round) => {
-          if (!round.answered_by) return;
+        // Count scores from attempts
+        roundAttempts?.forEach((attempt) => {
+          const playerId = attempt.player_id;
           
-          // The answered_by might be either user_id or player_id
-          // Let's try to find the corresponding user_id
-          const userId = round.answered_by;
-          
-          // Check if this is already a user_id in our player map
-          if (!playerMap.has(userId)) {
-            // If not found, it might be a player_id, so we'll use it directly
-            // Create a fallback entry
-            playerMap.set(userId, {
-              user_id: userId,
-              username: `User ${userId.slice(0, 8)}`,
-              email: `user-${userId.slice(0, 8)}@match.local`
-            });
+          if (!playerScores[playerId]) {
+            playerScores[playerId] = {
+              score: 0,
+              total: 0,
+              name: attempt.players?.name || 'Unknown Player',
+              user_id: attempt.players?.user_id || playerId
+            };
           }
           
-          if (!playerScores[userId]) {
-            playerScores[userId] = { score: 0, total: 0 };
-          }
-          
-          playerScores[userId].total += 1;
-          if (round.is_correct) {
-            playerScores[userId].score += 1;
+          playerScores[playerId].total += 1;
+          if (attempt.is_correct) {
+            playerScores[playerId].score += 1;
           }
         });
 
         // Create results array
-        const playerResults: PlayerResult[] = Object.entries(playerScores).map(([playerId, stats]) => {
-          const playerInfo = playerMap.get(playerId);
+        const playerResults: PlayerResult[] = Object.entries(playerScores).map(([, stats]) => {
           return {
-            player_id: playerId,
-            username: playerInfo?.username || `Player ${playerId.slice(0, 8)}`,
-            email: playerInfo?.email,
+            player_id: stats.user_id,
+            username: stats.name,
+            email: undefined,
             score: stats.score,
             total_questions: stats.total,
             accuracy: stats.total > 0 ? (stats.score / stats.total) * 100 : 0,
@@ -148,19 +169,19 @@ export default function MatchResultsPage() {
         setResults(playerResults);
 
         // Calculate match statistics
-        const totalQuestions = Math.max(...Object.values(playerScores).map(p => p.total));
+        const totalQuestions = Math.max(...Object.values(playerScores).map(p => p.total), 0);
         const totalPlayers = playerResults.length;
-        const highestScore = Math.max(...playerResults.map(p => p.score));
-        const averageScore = playerResults.reduce((sum, p) => sum + p.score, 0) / totalPlayers;
+        const highestScore = totalPlayers > 0 ? Math.max(...playerResults.map(p => p.score)) : 0;
+        const averageScore = totalPlayers > 0 ? playerResults.reduce((sum, p) => sum + p.score, 0) / totalPlayers : 0;
 
         // Calculate match duration (rough estimate)
-        const timestamps = rounds?.map(r => new Date(r.created_at).getTime()) || [];
+        const timestamps = roundAttempts?.map(r => new Date(r.created_at).getTime()) || [];
         const duration = timestamps.length > 0 
           ? Math.round((Math.max(...timestamps) - Math.min(...timestamps)) / 1000 / 60)
           : 0;
 
         setMatchStats({
-          total_questions: totalQuestions,
+          total_questions: totalQuestions || 0,
           total_players: totalPlayers,
           match_duration: `${duration} minutes`,
           highest_score: highestScore,

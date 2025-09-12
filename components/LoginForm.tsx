@@ -117,34 +117,36 @@ export default function LoginForm() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <Card className="w-full max-w-md overflow-hidden backdrop-blur-lg bg-white/90 border-white/30 shadow-2xl">
+      <Card className="w-full max-w-md overflow-hidden backdrop-blur-sm bg-white/80 border-0 shadow-2xl">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          <CardHeader className="space-y-1 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="space-y-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-600/90 to-blue-600/90"></div>
             <motion.div
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.5 }}
+              className="relative z-10"
             >
-              <CardTitle className="text-2xl font-bold text-gray-900">Welcome back</CardTitle>
-              <CardDescription className="text-gray-700">
+              <CardTitle className="text-2xl font-bold text-white">Welcome back</CardTitle>
+              <CardDescription className="text-purple-100">
                 Enter your credentials to access your account
               </CardDescription>
             </motion.div>
           </CardHeader>
         </motion.div>
         
-        <CardContent>
+        <CardContent className="p-6">
           <AnimatePresence>
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className={`mb-4 p-3 rounded-md flex items-center gap-2 ${
+                className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
                   error.includes("Confirmation email sent")
                     ? "bg-blue-50 border border-blue-200"
                     : "bg-red-50 border border-red-200"
@@ -173,7 +175,7 @@ export default function LoginForm() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4, duration: 0.5 }}
             >
-              <Label htmlFor="login-email">Email</Label>
+              <Label htmlFor="login-email" className="text-gray-700 font-medium">Email</Label>
               <Input
                 id="login-email"
                 type="email"
@@ -181,7 +183,7 @@ export default function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="transition-all duration-200 focus:scale-[1.02]"
+                className="transition-all duration-200 focus:scale-[1.02] border-gray-200 focus:border-purple-400 focus:ring-purple-400"
               />
             </motion.div>
             
@@ -191,7 +193,7 @@ export default function LoginForm() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5, duration: 0.5 }}
             >
-              <Label htmlFor="login-password">Password</Label>
+              <Label htmlFor="login-password" className="text-gray-700 font-medium">Password</Label>
               <div className="relative">
                 <Input
                   id="login-password"
@@ -200,7 +202,7 @@ export default function LoginForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="pr-10 transition-all duration-200 focus:scale-[1.02]"
+                  className="pr-10 transition-all duration-200 focus:scale-[1.02] border-gray-200 focus:border-purple-400 focus:ring-purple-400"
                 />
                 <motion.button
                   type="button"
@@ -210,9 +212,9 @@ export default function LoginForm() {
                   whileTap={{ scale: 0.9 }}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
+                    <EyeOff className="h-4 w-4 text-gray-400 hover:text-purple-600" />
                   ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
+                    <Eye className="h-4 w-4 text-gray-400 hover:text-purple-600" />
                   )}
                 </motion.button>
               </div>
@@ -230,7 +232,7 @@ export default function LoginForm() {
               >
                 <Button 
                   type="submit" 
-                  className="w-full relative overflow-hidden" 
+                  className="w-full relative overflow-hidden bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200" 
                   disabled={isLoading || success}
                 >
                   <motion.span
@@ -275,7 +277,7 @@ export default function LoginForm() {
                       <Button 
                         type="button"
                         variant="outline" 
-                        className="w-full transition-all duration-200" 
+                        className="w-full transition-all duration-200 border-2 border-purple-200 hover:border-purple-300 hover:bg-purple-50 text-purple-700 hover:text-purple-800" 
                         onClick={resendConfirmation}
                       >
                         Resend Confirmation Email

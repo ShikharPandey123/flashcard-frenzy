@@ -78,18 +78,40 @@ export default function LobbyPage() {
 
   const fetchPlayerStats = async (userId: string) => {
     try {
+      // Get all matches the user has participated in
       const { data: matches, error } = await supabase
         .from('match_players')
-        .select('match_id, score')
+        .select('match_id')
         .eq('user_id', userId);
 
       if (error) throw error;
 
       const totalMatches = matches?.length || 0;
-      const totalScore = matches?.reduce((sum, match) => sum + (match.score || 0), 0) || 0;
       
-      // For now, we'll calculate wins as matches with score > 0
-      const matchesWon = matches?.filter(match => (match.score || 0) > 0).length || 0;
+      // Calculate total score and wins by counting correct answers from round_attempts
+      let totalScore = 0;
+      let matchesWon = 0;
+      
+      if (matches && matches.length > 0) {
+        for (const match of matches) {
+          // Count correct answers for this user in this match
+          const { data: attempts } = await supabase
+            .from('round_attempts')
+            .select('is_correct, match_rounds!inner(match_id)')
+            .eq('player_id', userId)
+            .eq('match_rounds.match_id', match.match_id)
+            .eq('is_correct', true);
+          
+          const matchScore = attempts?.length || 0;
+          totalScore += matchScore;
+          
+          // Consider a match "won" if user got at least 1 correct answer
+          if (matchScore > 0) {
+            matchesWon++;
+          }
+        }
+      }
+      
       const winRate = totalMatches > 0 ? (matchesWon / totalMatches) * 100 : 0;
 
       setPlayerStats({
@@ -100,6 +122,13 @@ export default function LobbyPage() {
       });
     } catch (error) {
       console.error('Error fetching player stats:', error);
+      // Set default stats on error
+      setPlayerStats({
+        total_matches: 0,
+        matches_won: 0,
+        win_rate: 0,
+        total_score: 0
+      });
     }
   };
 
