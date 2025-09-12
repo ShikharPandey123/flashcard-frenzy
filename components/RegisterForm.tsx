@@ -15,7 +15,6 @@ interface RegisterFormProps {
 }
 
 export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
-  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,7 +25,6 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
   const [success, setSuccess] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
 
-  // Password strength checker
   const calculatePasswordStrength = (pwd: string) => {
     let strength = 0;
     if (pwd.length >= 8) strength += 25;
@@ -45,152 +43,62 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    
-    if (!username.trim()) {
-      setError("Username is required");
-      toast.error("Username required", {
-        description: "Please enter a username.",
-      });
-      return;
-    }
 
-    if (username.length < 3) {
-      setError("Username must be at least 3 characters long");
-      toast.error("Username too short", {
-        description: "Username must be at least 3 characters long.",
-      });
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-      setError("Username can only contain letters, numbers, and underscores");
-      toast.error("Invalid username", {
-        description: "Username can only contain letters, numbers, and underscores.",
-      });
-      return;
-    }
-    
     if (password !== confirmPassword) {
       setError("Passwords don't match");
-      toast.error("Passwords don't match", {
-        description: "Please make sure both password fields are identical.",
-      });
+      toast.error("Passwords don't match", { description: "Please make sure both password fields are identical." });
       return;
     }
 
     if (passwordStrength < 50) {
       setError("Password is too weak. Use at least 8 characters with uppercase, numbers, and symbols.");
-      toast.error("Password too weak", {
-        description: "Use at least 8 characters with uppercase, numbers, and symbols.",
-      });
+      toast.error("Password too weak", { description: "Use at least 8 characters with uppercase, numbers, and symbols." });
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
-      // Check if username already exists
-      const { data: existingPlayer } = await supabase
-        .from('players')
-        .select('name')
-        .eq('name', username.trim())
-        .single();
+      const { error: authError } = await supabase.auth.signUp({ email, password });
 
-      if (existingPlayer) {
-        setError("Username already taken. Please choose another one.");
-        toast.error("Username taken", {
-          description: "This username is already in use. Please choose another one.",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Create the user account
-      const { data: authData, error: authError } = await supabase.auth.signUp({ 
-        email, 
-        password 
-      });
-      
       if (authError) {
         setError(authError.message);
-        toast.error("Registration failed", {
-          description: authError.message,
-        });
+        toast.error("Registration failed", { description: authError.message });
         setIsLoading(false);
         return;
-      }
-
-      // If user creation successful, create player record
-      if (authData.user) {
-        const { error: playerError } = await supabase
-          .from('players')
-          .insert([{
-            user_id: authData.user.id,
-            name: username.trim()
-          }]);
-
-        if (playerError) {
-          console.error('Error creating player record:', playerError);
-          // Don't show this error to user as the account was created successfully
-        }
       }
 
       setSuccess(true);
       toast.success("Account created successfully!", {
-        description: "Welcome to Flashcard Frenzy! Redirecting to sign in...",
+        // description: "Welcome! Redirecting to sign in...",
         duration: 4000,
       });
+
       setTimeout(() => {
-        setUsername("");
         setEmail("");
         setPassword("");
         setConfirmPassword("");
         setPasswordStrength(0);
         setSuccess(false);
-        // Redirect to sign-in tab after successful registration
-        if (onSuccessRedirect) {
-          onSuccessRedirect();
-        }
+        if (onSuccessRedirect) onSuccessRedirect();
       }, 2000);
     } catch (err) {
-      setError("An unexpected error occurred. Please try again.");
-      toast.error("Registration failed", {
-        description: "An unexpected error occurred. Please try again.",
-      });
       console.error("Registration error:", err);
+      setError("An unexpected error occurred. Please try again.");
+      toast.error("Registration failed", { description: "An unexpected error occurred. Please try again." });
     } finally {
       setIsLoading(false);
     }
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       <Card className="w-full max-w-md overflow-hidden backdrop-blur-sm bg-white/80 border-0 shadow-2xl">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-        >
-          <CardHeader className="space-y-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-600/90 to-blue-600/90"></div>
-            <motion.div
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
-              className="relative z-10"
-            >
-              <CardTitle className="text-2xl font-bold text-white">Create account</CardTitle>
-              <CardDescription className="text-purple-100">
-                Join Flashcard Frenzy and start learning today
-              </CardDescription>
-            </motion.div>
-          </CardHeader>
-        </motion.div>
-        
+        <CardHeader className="space-y-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white relative overflow-hidden">
+          <CardTitle className="text-2xl font-bold text-white">Create account</CardTitle>
+          <CardDescription className="text-purple-100">Join Flashcard Frenzy and start learning today</CardDescription>
+        </CardHeader>
+
         <CardContent className="p-6">
           <AnimatePresence>
             {error && (
@@ -204,7 +112,7 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
                 <span className="text-sm text-red-800">{error}</span>
               </motion.div>
             )}
-            
+
             {success && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -219,41 +127,8 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
           </AnimatePresence>
 
           <form onSubmit={handleRegister} className="space-y-4">
-            <motion.div
-              className="space-y-2"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4, duration: 0.5 }}
-            >
-              <Label htmlFor="register-username" className="text-gray-700 font-medium">Username</Label>
-              <Input
-                id="register-username"
-                type="text"
-                placeholder="Choose a username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className="transition-all duration-200 focus:scale-[1.02] border-gray-200 focus:border-purple-400 focus:ring-purple-400"
-              />
-              {username && !/^[a-zA-Z0-9_]+$/.test(username) && (
-                <p className="text-xs text-amber-600">
-                  Username can only contain letters, numbers, and underscores
-                </p>
-              )}
-              {username && username.length > 0 && username.length < 3 && (
-                <p className="text-xs text-amber-600">
-                  Username must be at least 3 characters long
-                </p>
-              )}
-            </motion.div>
-            
-            <motion.div
-              className="space-y-2"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5, duration: 0.5 }}
-            >
-              <Label htmlFor="register-email" className="text-gray-700 font-medium">Email</Label>
+            <div className="space-y-2">
+              <Label htmlFor="register-email">Email</Label>
               <Input
                 id="register-email"
                 type="email"
@@ -261,17 +136,11 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="transition-all duration-200 focus:scale-[1.02] border-gray-200 focus:border-purple-400 focus:ring-purple-400"
               />
-            </motion.div>
-            
-            <motion.div
-              className="space-y-2"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.6, duration: 0.5 }}
-            >
-              <Label htmlFor="register-password" className="text-gray-700 font-medium">Password</Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="register-password">Password</Label>
               <div className="relative">
                 <Input
                   id="register-password"
@@ -280,82 +149,35 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
                   value={password}
                   onChange={(e) => handlePasswordChange(e.target.value)}
                   required
-                  className="pr-10 transition-all duration-200 focus:scale-[1.02] border-gray-200 focus:border-purple-400 focus:ring-purple-400"
+                  className="pr-10"
                 />
-                <motion.button
-                  type="button"
-                  className="absolute inset-y-0 right-0 flex items-center pr-3"
-                  onClick={() => setShowPassword(!showPassword)}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400 hover:text-purple-600" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-gray-400 hover:text-purple-600" />
-                  )}
-                </motion.button>
+                <button type="button" className="absolute inset-y-0 right-0 flex items-center pr-3" onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
-              
-              {/* Password Strength Indicator */}
-              <AnimatePresence>
-                {password && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="space-y-1"
-                  >
-                    <div className="flex gap-1">
-                      {[25, 50, 75, 100].map((threshold, index) => (
-                        <motion.div
-                          key={index}
-                          className={`h-2 flex-1 rounded-full transition-colors duration-300 ${
-                            passwordStrength >= threshold
-                              ? passwordStrength < 50
-                                ? "bg-gradient-to-r from-red-400 to-red-500"
-                                : passwordStrength < 75
-                                ? "bg-gradient-to-r from-yellow-400 to-yellow-500"
-                                : "bg-gradient-to-r from-green-400 to-green-500"
-                              : "bg-gray-200"
-                          }`}
-                          initial={{ scaleX: 0 }}
-                          animate={{ scaleX: passwordStrength >= threshold ? 1 : 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        />
-                      ))}
-                    </div>
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className={`text-xs ${
-                        passwordStrength < 50
-                          ? "text-red-600"
-                          : passwordStrength < 75
-                          ? "text-yellow-600"
-                          : "text-green-600"
+
+              {password && (
+                <div className="mt-1 flex gap-1">
+                  {[25, 50, 75, 100].map((threshold, index) => (
+                    <div
+                      key={index}
+                      className={`h-2 flex-1 rounded-full ${
+                        passwordStrength >= threshold
+                          ? passwordStrength < 50
+                            ? "bg-red-500"
+                            : passwordStrength < 75
+                            ? "bg-yellow-500"
+                            : "bg-green-500"
+                          : "bg-gray-200"
                       }`}
-                    >
-                      {passwordStrength < 25
-                        ? "Very weak"
-                        : passwordStrength < 50
-                        ? "Weak"
-                        : passwordStrength < 75
-                        ? "Good"
-                        : "Strong"}
-                    </motion.p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-            
-            <motion.div
-              className="space-y-2"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.7, duration: 0.5 }}
-            >
-              <Label htmlFor="confirm-password" className="text-gray-700 font-medium">Confirm Password</Label>
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm Password</Label>
               <div className="relative">
                 <Input
                   id="confirm-password"
@@ -364,84 +186,20 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className={`pr-10 transition-all duration-200 focus:scale-[1.02] border-gray-200 focus:border-purple-400 focus:ring-purple-400 ${
-                    confirmPassword && password !== confirmPassword
-                      ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-                      : confirmPassword && password === confirmPassword
-                      ? "border-green-300 focus:border-green-500 focus:ring-green-500"
-                      : ""
-                  }`}
+                  className={`pr-10 ${confirmPassword && password !== confirmPassword ? "border-red-300" : ""}`}
                 />
-                <motion.button
-                  type="button"
-                  className="absolute inset-y-0 right-0 flex items-center pr-3"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4 text-gray-400 hover:text-purple-600" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-gray-400 hover:text-purple-600" />
-                  )}
-                </motion.button>
+                <button type="button" className="absolute inset-y-0 right-0 flex items-center pr-3" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
-              
-              <AnimatePresence>
-                {confirmPassword && password !== confirmPassword && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="text-xs text-red-600"
-                  >
-                    Passwords don&apos;t match
-                  </motion.p>
-                )}
-              </AnimatePresence>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, duration: 0.5 }}
-            >
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Button 
-                  type="submit" 
-                  className="w-full relative overflow-hidden bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200" 
-                  disabled={isLoading || password !== confirmPassword || passwordStrength < 50 || username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username)}
-                >
-                  <motion.span
-                    animate={isLoading ? { opacity: 0 } : { opacity: 1 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    Create Account
-                  </motion.span>
-                  
-                  <AnimatePresence>
-                    {isLoading && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 flex items-center justify-center"
-                      >
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
-                        />
-                        <span className="ml-2">Creating account...</span>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </Button>
-              </motion.div>
-            </motion.div>
+              {confirmPassword && password !== confirmPassword && (
+                <p className="text-xs text-red-600">Passwords don&apos;t match</p>
+              )}
+            </div>
+
+            <Button type="submit" className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white" disabled={isLoading || password !== confirmPassword || passwordStrength < 50}>
+              {isLoading ? "Creating account..." : "Create Account"}
+            </Button>
           </form>
         </CardContent>
       </Card>

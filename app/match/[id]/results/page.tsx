@@ -389,7 +389,7 @@ export default function MatchResultsPage() {
                   ) : (
                     results.map((player, index) => (
                       <motion.div
-                        key={player.player_id}
+                        key={`${player.player_id}-${index}`}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
