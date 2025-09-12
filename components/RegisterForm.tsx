@@ -15,6 +15,7 @@ interface RegisterFormProps {
 }
 
 export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -45,6 +46,30 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
     e.preventDefault();
     setError(null);
     
+    if (!username.trim()) {
+      setError("Username is required");
+      toast.error("Username required", {
+        description: "Please enter a username.",
+      });
+      return;
+    }
+
+    if (username.length < 3) {
+      setError("Username must be at least 3 characters long");
+      toast.error("Username too short", {
+        description: "Username must be at least 3 characters long.",
+      });
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      setError("Username can only contain letters, numbers, and underscores");
+      toast.error("Invalid username", {
+        description: "Username can only contain letters, numbers, and underscores.",
+      });
+      return;
+    }
+    
     if (password !== confirmPassword) {
       setError("Passwords don't match");
       toast.error("Passwords don't match", {
@@ -64,34 +89,69 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
     setIsLoading(true);
     
     try {
-      const { error } = await supabase.auth.signUp({ 
+      // Check if username already exists
+      const { data: existingPlayer } = await supabase
+        .from('players')
+        .select('name')
+        .eq('name', username.trim())
+        .single();
+
+      if (existingPlayer) {
+        setError("Username already taken. Please choose another one.");
+        toast.error("Username taken", {
+          description: "This username is already in use. Please choose another one.",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Create the user account
+      const { data: authData, error: authError } = await supabase.auth.signUp({ 
         email, 
         password 
       });
       
-      if (error) {
-        setError(error.message);
+      if (authError) {
+        setError(authError.message);
         toast.error("Registration failed", {
-          description: error.message,
+          description: authError.message,
         });
-      } else {
-        setSuccess(true);
-        toast.success("Account created successfully!", {
-        //   description: "Please check your email for verification. Redirecting to sign in...",
-          duration: 4000,
-        });
-        setTimeout(() => {
-          setEmail("");
-          setPassword("");
-          setConfirmPassword("");
-          setPasswordStrength(0);
-          setSuccess(false);
-          // Redirect to sign-in tab after successful registration
-          if (onSuccessRedirect) {
-            onSuccessRedirect();
-          }
-        }, 2000);
+        setIsLoading(false);
+        return;
       }
+
+      // If user creation successful, create player record
+      if (authData.user) {
+        const { error: playerError } = await supabase
+          .from('players')
+          .insert([{
+            user_id: authData.user.id,
+            name: username.trim()
+          }]);
+
+        if (playerError) {
+          console.error('Error creating player record:', playerError);
+          // Don't show this error to user as the account was created successfully
+        }
+      }
+
+      setSuccess(true);
+      toast.success("Account created successfully!", {
+        description: "Welcome to Flashcard Frenzy! Redirecting to sign in...",
+        duration: 4000,
+      });
+      setTimeout(() => {
+        setUsername("");
+        setEmail("");
+        setPassword("");
+        setConfirmPassword("");
+        setPasswordStrength(0);
+        setSuccess(false);
+        // Redirect to sign-in tab after successful registration
+        if (onSuccessRedirect) {
+          onSuccessRedirect();
+        }
+      }, 2000);
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
       toast.error("Registration failed", {
@@ -165,6 +225,34 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4, duration: 0.5 }}
             >
+              <Label htmlFor="register-username" className="text-gray-700 font-medium">Username</Label>
+              <Input
+                id="register-username"
+                type="text"
+                placeholder="Choose a username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                className="transition-all duration-200 focus:scale-[1.02] border-gray-200 focus:border-purple-400 focus:ring-purple-400"
+              />
+              {username && !/^[a-zA-Z0-9_]+$/.test(username) && (
+                <p className="text-xs text-amber-600">
+                  Username can only contain letters, numbers, and underscores
+                </p>
+              )}
+              {username && username.length > 0 && username.length < 3 && (
+                <p className="text-xs text-amber-600">
+                  Username must be at least 3 characters long
+                </p>
+              )}
+            </motion.div>
+            
+            <motion.div
+              className="space-y-2"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.5, duration: 0.5 }}
+            >
               <Label htmlFor="register-email" className="text-gray-700 font-medium">Email</Label>
               <Input
                 id="register-email"
@@ -181,7 +269,7 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
               className="space-y-2"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5, duration: 0.5 }}
+              transition={{ delay: 0.6, duration: 0.5 }}
             >
               <Label htmlFor="register-password" className="text-gray-700 font-medium">Password</Label>
               <div className="relative">
@@ -265,7 +353,7 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
               className="space-y-2"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.6, duration: 0.5 }}
+              transition={{ delay: 0.7, duration: 0.5 }}
             >
               <Label htmlFor="confirm-password" className="text-gray-700 font-medium">Confirm Password</Label>
               <div className="relative">
@@ -316,7 +404,7 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7, duration: 0.5 }}
+              transition={{ delay: 0.8, duration: 0.5 }}
             >
               <motion.div
                 whileHover={{ scale: 1.02 }}
@@ -325,7 +413,7 @@ export default function RegisterForm({ onSuccessRedirect }: RegisterFormProps) {
                 <Button 
                   type="submit" 
                   className="w-full relative overflow-hidden bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200" 
-                  disabled={isLoading || password !== confirmPassword || passwordStrength < 50}
+                  disabled={isLoading || password !== confirmPassword || passwordStrength < 50 || username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username)}
                 >
                   <motion.span
                     animate={isLoading ? { opacity: 0 } : { opacity: 1 }}

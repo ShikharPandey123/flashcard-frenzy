@@ -40,10 +40,11 @@ interface MatchStats {
 
 // Type definitions for Supabase responses
 type MatchPlayerData = {
-  user_id: string;
+  player_id: string;
   players: {
     id: string;
     name: string;
+    user_id: string;
   };
 };
 
@@ -74,9 +75,24 @@ export default function MatchResultsPage() {
   useEffect(() => {
     const fetchResults = async () => {
       try {
+        console.log('Fetching results for match:', matchId);
+        
+        // Validate match ID format
+        const isValidUUID = (str: string) => {
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          return uuidRegex.test(str);
+        };
+
+        if (!matchId || !isValidUUID(matchId)) {
+          console.error('Invalid match ID format:', matchId);
+          setLoading(false);
+          return;
+        }
+        
         // Get current user
         const { data: userData } = await supabase.auth.getUser();
         setCurrentUserId(userData.user?.id || null);
+        console.log('Current user ID:', userData.user?.id);
 
         // Fetch all round attempts for this match with proper joins
         const { data: roundAttempts, error: attemptsError } = await supabase
@@ -95,18 +111,27 @@ export default function MatchResultsPage() {
           return;
         }
 
+        console.log('Round attempts fetched:', roundAttempts?.length || 0, roundAttempts);
+
         // Fetch match players to ensure we have all participants
         const { data: matchPlayers, error: playersError } = await supabase
           .from('match_players')
           .select(`
-            user_id,
-            players!inner(id, name)
+            player_id,
+            players!inner(id, name, user_id)
           `)
           .eq('match_id', matchId) as { data: MatchPlayerData[] | null; error: unknown };
 
         if (playersError) {
           console.error('Error fetching match players:', playersError);
           return;
+        }
+
+        console.log('Match players fetched:', matchPlayers?.length || 0, matchPlayers);
+
+        // Debug: Check the structure of match players
+        if (matchPlayers && matchPlayers.length > 0) {
+          console.log('Sample match player structure:', matchPlayers[0]);
         }
 
         // Aggregate scores by player
@@ -124,7 +149,7 @@ export default function MatchResultsPage() {
             score: 0,
             total: 0,
             name: matchPlayer.players.name,
-            user_id: matchPlayer.user_id
+            user_id: matchPlayer.players.user_id
           };
         });
         
@@ -167,6 +192,7 @@ export default function MatchResultsPage() {
         });
 
         setResults(playerResults);
+        console.log('Final player results:', playerResults);
 
         // Calculate match statistics
         const totalQuestions = Math.max(...Object.values(playerScores).map(p => p.total), 0);
@@ -345,47 +371,64 @@ export default function MatchResultsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {results.map((player, index) => (
-                    <motion.div
-                      key={player.player_id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className={`p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md
-                        ${player.player_id === currentUserId 
-                          ? 'border-purple-300 bg-purple-50' 
-                          : 'border-gray-200 bg-white'
-                        }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className={`p-2 rounded-full bg-gradient-to-r ${getRankColor(player.position)}`}>
-                            {getRankIcon(player.position)}
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-lg flex items-center">
-                              {player.username}
-                              {player.player_id === currentUserId && (
-                                <Badge variant="secondary" className="ml-2 text-xs">You</Badge>
-                              )}
-                            </h3>
-                            <p className="text-sm text-gray-600">
-                              Position #{player.position}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold text-gray-800">{player.score}</div>
-                          <div className="text-sm text-gray-600">
-                            {player.accuracy.toFixed(1)}% accuracy
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {player.score}/{player.total_questions} correct
-                          </div>
-                        </div>
+                  {results.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-gray-500 mb-4">
+                        <Users className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                        <p className="text-lg font-semibold">No Results Found</p>
+                        <p className="text-sm">This match may not have any completed rounds yet.</p>
                       </div>
-                    </motion.div>
-                  ))}
+                      <Button
+                        onClick={() => router.push('/match/lobby')}
+                        variant="outline"
+                        className="mt-4"
+                      >
+                        Back to Lobby
+                      </Button>
+                    </div>
+                  ) : (
+                    results.map((player, index) => (
+                      <motion.div
+                        key={player.player_id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className={`p-4 rounded-lg border-2 transition-all duration-200 hover:shadow-md
+                          ${player.player_id === currentUserId 
+                            ? 'border-purple-300 bg-purple-50' 
+                            : 'border-gray-200 bg-white'
+                          }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className={`p-2 rounded-full bg-gradient-to-r ${getRankColor(player.position)}`}>
+                              {getRankIcon(player.position)}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-lg flex items-center">
+                                {player.username}
+                                {player.player_id === currentUserId && (
+                                  <Badge variant="secondary" className="ml-2 text-xs">You</Badge>
+                                )}
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                Position #{player.position}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-gray-800">{player.score}</div>
+                            <div className="text-sm text-gray-600">
+                              {player.accuracy.toFixed(1)}% accuracy
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {player.score}/{player.total_questions} correct
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>

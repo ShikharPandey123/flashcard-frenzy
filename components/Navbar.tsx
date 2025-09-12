@@ -46,7 +46,7 @@ export default function Navbar() {
   const navigation = [
     { name: "Home", href: "/", icon: Home },
     { name: "Flashcards", href: "/flashcards", icon: BookOpen },
-    { name: "Match Demo", href: "/match/1", icon: Zap },
+    { name: "Match Lobby", href: "/match/lobby", icon: Zap },
   ]
 
   return (

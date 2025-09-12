@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 export default function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -29,8 +29,41 @@ export default function LoginForm() {
     setSuccess(false);
     
     try {
+      // First, look up the user's email using their username
+      const { data: playerData, error: playerError } = await supabase
+        .from('players')
+        .select('user_id')
+        .eq('name', username.trim())
+        .single();
+
+      if (playerError || !playerData) {
+        setError("Username not found. Please check your username or register a new account.");
+        toast.error("Login failed", {
+          description: "Username not found. Please check your username or register a new account.",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Get the user's email from the auth.users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', playerData.user_id)
+        .single();
+
+      if (userError || !userData?.email) {
+        setError("Unable to find account details. Please contact support.");
+        toast.error("Login failed", {
+          description: "Unable to find account details. Please contact support.",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Now sign in with the email and password
       const { error } = await supabase.auth.signInWithPassword({ 
-        email, 
+        email: userData.email, 
         password 
       });
       
@@ -42,9 +75,9 @@ export default function LoginForm() {
             description: "Please check your email and click the confirmation link before signing in.",
           });
         } else if (error.message === "Invalid login credentials") {
-          setError("Invalid email or password. Please try again.");
+          setError("Invalid username or password. Please try again.");
           toast.error("Login failed", {
-            description: "Invalid email or password. Please try again.",
+            description: "Invalid username or password. Please try again.",
           });
         } else {
           setError(error.message);
@@ -74,10 +107,10 @@ export default function LoginForm() {
   }
 
   async function resendConfirmation() {
-    if (!email) {
-      setError("Please enter your email address first.");
-      toast.error("Email required", {
-        description: "Please enter your email address first.",
+    if (!username) {
+      setError("Please enter your username first.");
+      toast.error("Username required", {
+        description: "Please enter your username first.",
       });
       return;
     }
@@ -85,9 +118,39 @@ export default function LoginForm() {
     setError(null);
     
     try {
+      // Look up the user's email using their username
+      const { data: playerData, error: playerError } = await supabase
+        .from('players')
+        .select('user_id')
+        .eq('name', username.trim())
+        .single();
+
+      if (playerError || !playerData) {
+        setError("Username not found. Please check your username.");
+        toast.error("Username not found", {
+          description: "Username not found. Please check your username.",
+        });
+        return;
+      }
+
+      // Get the user's email from the auth.users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', playerData.user_id)
+        .single();
+
+      if (userError || !userData?.email) {
+        setError("Unable to find email address for this username.");
+        toast.error("Email not found", {
+          description: "Unable to find email address for this username.",
+        });
+        return;
+      }
+
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: email,
+        email: userData.email,
       });
 
       if (error) {
@@ -175,13 +238,13 @@ export default function LoginForm() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4, duration: 0.5 }}
             >
-              <Label htmlFor="login-email" className="text-gray-700 font-medium">Email</Label>
+              <Label htmlFor="login-username" className="text-gray-700 font-medium">Username</Label>
               <Input
-                id="login-email"
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="login-username"
+                type="text"
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 className="transition-all duration-200 focus:scale-[1.02] border-gray-200 focus:border-purple-400 focus:ring-purple-400"
               />

@@ -32,6 +32,7 @@ import { Separator } from "@/components/ui/separator"
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null)
+  const [username, setUsername] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [stats] = useState({
     flashcardsCreated: 12,
@@ -46,6 +47,23 @@ export default function ProfilePage() {
         data: { user },
       } = await supabase.auth.getUser()
       setUser(user)
+      
+      // If user exists, fetch their username from players table
+      if (user) {
+        const { data: playerData } = await supabase
+          .from('players')
+          .select('name')
+          .eq('user_id', user.id)
+          .single()
+        
+        if (playerData?.name) {
+          setUsername(playerData.name)
+        } else {
+          // Fallback to email prefix if no username found
+          setUsername(user.email?.split("@")[0] || "User")
+        }
+      }
+      
       setLoading(false)
     }
 
@@ -130,12 +148,12 @@ export default function ProfilePage() {
             >
               <Avatar className="w-24 h-24 ring-4 ring-white/30">
                 <AvatarFallback className="bg-white/20 text-white text-3xl font-bold">
-                  {user.email?.charAt(0).toUpperCase() || "U"}
+                  {username?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <h1 className="text-4xl font-bold mb-2">
-                  {user.email?.split("@")[0] || "User"}
+                  {username || user.email?.split("@")[0] || "User"}
                 </h1>
                 <div className="flex items-center gap-2 text-purple-100">
                   <Mail className="w-5 h-5" />
@@ -242,7 +260,7 @@ export default function ProfilePage() {
                   </Button>
                   
                   <Button asChild variant="outline" className="w-full justify-start">
-                    <Link href="/match/1" className="flex items-center gap-2">
+                    <Link href="/match/lobby" className="flex items-center gap-2">
                       <Zap className="w-4 h-4" />
                       Start Match
                     </Link>
