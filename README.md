@@ -1,6 +1,8 @@
 
 
-https://github.com/user-attachments/assets/0b2cc5c0-6630-4588-8b95-625151a1f4db
+https://github.com/user-attachments/assets/72c7ceab-a4ad-4299-b87e-cdfd9f44e355
+
+
 
 # 🃏 Flashcard Frenzy
 
