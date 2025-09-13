@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/0b2cc5c0-6630-4588-8b95-625151a1f4db
+
 # 🃏 Flashcard Frenzy
 
 A modern, interactive flashcard application built with Next.js, featuring real-time multiplayer matches, user authentication, and a beautiful gradient UI design.
